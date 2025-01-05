@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "codereviewer"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+litestar = {extras = ["standard"], version = "^2.13.0"}
+langgraph = "^0.2.60"
+pyjwt = "^2.10.1"
+httpx = "^0.28.1"
+cryptography = "^44.0.0"
+langchain-google-genai = "^2.0.7"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
