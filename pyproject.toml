@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "codebrachio"
+version = "0.1.0"
+description = ""
+authors = ["Zncl2222"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+litestar = {extras = ["standard"], version = "==2.13.0"}
+langgraph = "^0.2.60"
+pyjwt = "^2.10.1"
+httpx = ">=0.23.0,<0.28.0"
+cryptography = ">=42.0.5,<43.0.0"
+langchain-google-genai = "^2.0.7"
+langchain-groq = "^0.2.2"
+dspy = "^2.5.43"
+langfuse = "^2.57.5"
+langchain = "^0.3.14"
+
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.31.0"
+pre-commit = "^4.0.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
