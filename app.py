@@ -1,20 +1,12 @@
-from litestar import Controller, Litestar, Response
-from litestar.handlers import get
+from litestar import Litestar
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
 
-
-class GeneralController(Controller):
-    path = '/'
-
-    @get('/hello')
-    async def say_hello(self) -> Response:
-        return Response(content={'message': 'Hello !'})
-
+from apps.codebrachio.controllers import GitHubController
 
 app = Litestar(
     route_handlers=[
-        GeneralController,
+        GitHubController,
     ],
     openapi_config=OpenAPIConfig(
         title='CodeBrachio',
