@@ -6,6 +6,12 @@ from typing_extensions import TypedDict
 
 class CodeReviewState(TypedDict):
     messages: Annotated[list, add_messages]
-    model_provider: str
+
+    # url
+    comment_url: str
+    diffs_url: str
+
+    diffs: str
+    llm_provider: str
     llm_model: str
     kwargs: dict[str, Any]
