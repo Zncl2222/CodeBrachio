@@ -6,6 +6,7 @@ from litestar.handlers import post
 from configs import GITHUB_CLIENT_ID
 
 from .auth import generate_jwt, get_installation_access_token, verify_webhook_signature
+from .code_review import CodeReview
 
 
 class GitHubController(Controller):
@@ -42,16 +43,6 @@ class GitHubController(Controller):
         body = json_payload['comment']['body']
         if action == 'created' and user != 'codebrachio[bot]' and '@CodeBrachio' in body:
             # pull_request_url = json_payload['issue']['pull_request']['url']
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{json_payload['issue']['comments_url']}",
-                    headers={
-                        'Accept': 'application/vnd.github+json',
-                        'Authorization': f'Bearer {access_token}',
-                    },
-                    json={
-                        'body': "Hello! I'm Brachio",
-                    },
-                )
+            CodeReview().run(access_token, json_payload)
 
         return Response({'status': 'ok'}, status_code=200)
