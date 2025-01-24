@@ -21,3 +21,8 @@ GITHUB_JWT_SIGNING_KEY: str = ''
 
 with open('codebrachio.2025-01-04.private-key.pem', 'rb') as pem_file:
     GITHUB_JWT_SIGNING_KEY = pem_file.read()
+
+# Langfuse
+LANGFUSE_SECRET_KEY = os.getenv('LANGFUSE_SECRET_KEY', default='')
+LANGFUSE_PUBLIC_KEY = os.getenv('LANGFUSE_PUBLIC_KEY', default='')
+LANGFUSE_HOST = os.getenv('LANGFUSE_HOST', default='')

@@ -4,8 +4,11 @@ import httpx
 from langchain_core.messages import SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
+from langfuse.callback import CallbackHandler
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+
+from configs import LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
 
 from .prompts import GITHUB_CODE_REVIEW_PROMPT
 from .states import CodeReviewState
@@ -81,6 +84,12 @@ class CodeReview(BaseGraph):
         graph = self._create_graph()
         self.access_token = access_token
 
+        langfuse_handler = CallbackHandler(
+            secret_key=LANGFUSE_SECRET_KEY,
+            public_key=LANGFUSE_PUBLIC_KEY,
+            host=LANGFUSE_HOST,
+        )
+
         data = {
             'llm_model': None,
             'llm_provider': 'groq',
@@ -89,4 +98,4 @@ class CodeReview(BaseGraph):
             'comment_url': json_payload['issue']['comments_url'],
         }
 
-        graph.invoke(data)
+        graph.invoke(data, config={'callbacks': [langfuse_handler]})
