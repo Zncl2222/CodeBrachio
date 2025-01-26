@@ -38,11 +38,12 @@ class GitHubController(Controller):
             raise HTTPException(status_code=401, detail='Invalid webhook signature')
 
         json_payload = await request.json()
+        if json_payload['action'] != 'created':
+            return Response({'status': 'ok'}, status_code=200)
+
         user = json_payload['comment']['user']['login']
-        action = json_payload['action']
         body = json_payload['comment']['body']
-        if action == 'created' and user != 'codebrachio[bot]' and '@CodeBrachio' in body:
-            # pull_request_url = json_payload['issue']['pull_request']['url']
+        if user != 'codebrachio[bot]' and '@CodeBrachio' in body:
             CodeReview().run(access_token, json_payload)
 
         return Response({'status': 'ok'}, status_code=200)

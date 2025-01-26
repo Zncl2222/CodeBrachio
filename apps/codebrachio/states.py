@@ -10,8 +10,10 @@ class CodeReviewState(TypedDict):
     # url
     comment_url: str
     diffs_url: str
+    pr_url: str
 
-    diffs: str
+    diffs: list[dict[str, str]]
+    commits: list[str]
     llm_provider: str
     llm_model: str
     kwargs: dict[str, Any]
