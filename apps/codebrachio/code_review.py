@@ -12,6 +12,7 @@ from configs import LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
 
 from .prompts import GITHUB_CODE_REVIEW_PROMPT
 from .states import CodeReviewState
+from .utils import parse_diff
 
 
 class BaseGraph:
@@ -41,7 +42,24 @@ class CodeReview(BaseGraph):
                 'Accept': 'application/vnd.github.v3.diff',
             },
         )
-        return {'diffs': response.text}
+        diffs = parse_diff(response.text)
+        return {'diffs': diffs}
+
+    def _get_all_pr_commits(self, state: CodeReviewState) -> dict:
+        pull_request_url = state['pr_url']
+        commits_url = f'{pull_request_url}/commits'
+        commits = httpx.get(
+            commits_url,
+            headers={
+                'Accept': 'application/vnd.github+json',
+                'Authorization': f'Bearer {self.access_token}',
+            },
+        ).json()
+
+        commits = sorted(commits, key=lambda x: x['commit']['author']['date'], reverse=True)
+        # latest_commit_id = commits[0]['sha']
+        commits = [x['sha'] for x in commits]
+        return {'commits': commits}
 
     def _create_comment(self, state: CodeReviewState) -> dict:
         response = httpx.post(
@@ -55,6 +73,29 @@ class CodeReview(BaseGraph):
             },
         )
         return {'messages': [response.text]}
+
+    def _create_review(self, state: CodeReviewState) -> dict:
+        for diff in state['diffs']:
+            for commit in state['commits']:
+                resp = httpx.post(
+                    f"{state['pr_url']}/comments",
+                    headers={
+                        'Accept': 'application/vnd.github+json',
+                        'Authorization': f'Bearer {self.access_token}',
+                    },
+                    json={
+                        'body': "Hello I'm Brachio",
+                        'commit_id': commit,
+                        'path': diff['file'],
+                        'start_line': diff['start_line'] + 3,
+                        'line': diff['end_line'] - 3,
+                        'start_side': 'RIGHT',
+                        'side': 'RIGHT',
+                    },
+                )
+                if resp.status_code == 201:
+                    break
+        return {'messages': []}
 
     def _code_review(self, state: CodeReviewState) -> dict:
         model_name = state['llm_model']
@@ -71,12 +112,16 @@ class CodeReview(BaseGraph):
 
         graph.add_node('get_code_diffs', self._get_code_diffs)
         graph.add_node('code_review', self._code_review)
+        graph.add_node('get_commits', self._get_all_pr_commits)
+        graph.add_node('create_review', self._create_review)
         graph.add_node('create_comment', self._create_comment)
 
         graph.add_edge(START, 'get_code_diffs')
         graph.add_edge('get_code_diffs', 'code_review')
         graph.add_edge('code_review', 'create_comment')
-        graph.add_edge('create_comment', END)
+        graph.add_edge('create_comment', 'get_commits')
+        graph.add_edge('get_commits', 'create_review')
+        graph.add_edge('create_review', END)
 
         return graph.compile()
 
@@ -96,6 +141,7 @@ class CodeReview(BaseGraph):
             'messages': json_payload['comment']['body'],
             'diffs_url': json_payload['issue']['pull_request']['url'],
             'comment_url': json_payload['issue']['comments_url'],
+            'pr_url': json_payload['issue']['pull_request']['url'],
         }
 
         graph.invoke(data, config={'callbacks': [langfuse_handler]})
