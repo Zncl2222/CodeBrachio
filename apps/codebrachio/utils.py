@@ -3,20 +3,15 @@ from __future__ import annotations
 import re
 
 
-def parse_diff(diff_text: str) -> list[dict[str, str | int]]:
+def parse_diff(diff_text: str, file_name: str) -> list[dict[str, str | int]]:
     result = []
-    file_name = None
     lines = diff_text.splitlines()
-
     for i, line in enumerate(lines):
-        if line.startswith('+++ b/'):
-            file_name = line[6:].strip()
-
         match = re.match(
             r'@@ -(?P<old_start>\d+),(?P<old_count>\d+) \+(?P<new_start>\d+),(?P<new_count>\d+) @@',
             line,
         )
-        if match and file_name:
+        if match:
             start_line = int(match.group('new_start'))
             end_line = start_line + int(match.group('new_count')) - 1
 
