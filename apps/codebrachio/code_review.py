@@ -7,6 +7,7 @@ from langchain_groq import ChatGroq
 from langfuse.callback import CallbackHandler
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Send
 
 from configs import LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
 
@@ -34,18 +35,7 @@ class BaseGraph:
 
 
 class CodeReview(BaseGraph):
-    def _get_code_diffs(self, state: CodeReviewState) -> dict:
-        response = httpx.get(
-            state['diffs_url'],
-            headers={
-                'Authorization': f'Bearer {self.access_token}',
-                'Accept': 'application/vnd.github.v3.diff',
-            },
-        )
-        diffs = parse_diff(response.text)
-        return {'diffs': diffs}
-
-    def _get_all_pr_commits(self, state: CodeReviewState) -> dict:
+    def _get_all_pr_commits_and_diffs(self, state: CodeReviewState) -> dict:
         pull_request_url = state['pr_url']
         commits_url = f'{pull_request_url}/commits'
         commits = httpx.get(
@@ -57,9 +47,25 @@ class CodeReview(BaseGraph):
         ).json()
 
         commits = sorted(commits, key=lambda x: x['commit']['author']['date'], reverse=True)
-        # latest_commit_id = commits[0]['sha']
+
+        # Get code diff by commit
+        diffs = []
+        for commit in commits:
+            diff = httpx.get(
+                f"https://api.github.com/repos/Zncl2222/c_array_tools/commits/{commit['sha']}",
+                headers={
+                    'Accept': 'application/vnd.github+json',
+                    'Authorization': f'Bearer {self.access_token}',
+                },
+            ).json()
+            code_diffs = []
+            for i in diff['files']:
+                code_diff = parse_diff(i['patch'], i['filename'])
+                code_diffs.extend(code_diff)
+            diffs.append({'commit': commit, 'diffs': code_diffs})
+
         commits = [x['sha'] for x in commits]
-        return {'commits': commits}
+        return {'commits': commits, 'diffs': diffs}
 
     def _create_comment(self, state: CodeReviewState) -> dict:
         response = httpx.post(
@@ -75,53 +81,101 @@ class CodeReview(BaseGraph):
         return {'messages': [response.text]}
 
     def _create_review(self, state: CodeReviewState) -> dict:
-        for diff in state['diffs']:
-            for commit in state['commits']:
-                resp = httpx.post(
-                    f"{state['pr_url']}/comments",
-                    headers={
-                        'Accept': 'application/vnd.github+json',
-                        'Authorization': f'Bearer {self.access_token}',
-                    },
-                    json={
-                        'body': "Hello I'm Brachio",
-                        'commit_id': commit,
+        resp = httpx.get(
+            f"{state['pr_url']}/reviews",
+            headers={
+                'Accept': 'application/vnd.github+json',
+                'Authorization': f'Bearer {self.access_token}',
+            },
+        )
+        for item in resp.json():
+            resp = httpx.delete(
+                f"{state['pr_url']}/reviews/{item['id']}",
+                headers={
+                    'Accept': 'application/vnd.github+json',
+                    'Authorization': f'Bearer {self.access_token}',
+                },
+            )
+
+        for commit in state['diffs']:
+            comments = []
+            for diff in commit['diffs']:
+                comments.append(
+                    {
+                        'body': 'Hello I am Brachio ~~',
                         'path': diff['file'],
-                        'start_line': diff['start_line'] + 3,
-                        'line': diff['end_line'] - 3,
+                        'start_line': diff['start_line'],
+                        'line': diff['end_line'],
                         'start_side': 'RIGHT',
                         'side': 'RIGHT',
                     },
                 )
-                if resp.status_code == 201:
-                    break
+            resp = httpx.post(
+                f"{state['pr_url']}/reviews",
+                headers={
+                    'Accept': 'application/vnd.github+json',
+                    'Authorization': f'Bearer {self.access_token}',
+                },
+                json={
+                    'body': "Hello I'm Brachio",
+                    'commit_id': commit['commit']['sha'],
+                    'comments': comments,
+                },
+            )
+            resp = httpx.post(
+                f"{state['pr_url']}/reviews/{resp.json()['id']}/events",
+                headers={
+                    'Accept': 'application/vnd.github+json',
+                    'Authorization': f'Bearer {self.access_token}',
+                },
+                json={
+                    'body': 'CodeBrachioTest',
+                    'event': 'COMMENT',
+                },
+            )
+
         return {'messages': []}
 
+    def _map_review(self, state: CodeReviewState):
+        map_params = []
+        for diff in state['diffs']:
+            for d in diff['diffs']:
+                map_params.append(Send('code_review', {'diffs': d}))
+        return map_params
+
     def _code_review(self, state: CodeReviewState) -> dict:
-        model_name = state['llm_model']
+        print('--------------CAll Code Review--------------')
+        model_name = state.get('llm_model', None)
         kwargs = state.get('kwargs', {})
         provider = state.get('llm_provider', None)
         system_message = SystemMessage(GITHUB_CODE_REVIEW_PROMPT)
         llm_model = self._get_llm_model(model_provider=provider, model=model_name, **kwargs)
-        message = f"{state['diffs']}\n{state['messages']}"
+        message = f"{state['diffs']['code_snippet']}\n{state['messages']}"
         resp = llm_model.invoke([system_message, message])
         return {'messages': [resp]}
 
     def _create_graph(self) -> CompiledStateGraph:
         graph = StateGraph(CodeReviewState)
 
-        graph.add_node('get_code_diffs', self._get_code_diffs)
         graph.add_node('code_review', self._code_review)
-        graph.add_node('get_commits', self._get_all_pr_commits)
+        graph.add_node('get_commits', self._get_all_pr_commits_and_diffs)
         graph.add_node('create_review', self._create_review)
         graph.add_node('create_comment', self._create_comment)
 
-        graph.add_edge(START, 'get_code_diffs')
-        graph.add_edge('get_code_diffs', 'code_review')
+        graph.add_edge(START, 'get_commits')
         graph.add_edge('code_review', 'create_comment')
-        graph.add_edge('create_comment', 'get_commits')
-        graph.add_edge('get_commits', 'create_review')
+        graph.add_edge('create_comment', 'create_review')
         graph.add_edge('create_review', END)
+
+        (
+            graph.add_conditional_edges(
+                'get_commits',
+                self._map_review,
+                {
+                    'continue': 'code_review',
+                },
+            ),
+        )
 
         return graph.compile()
 
