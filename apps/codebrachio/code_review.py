@@ -60,7 +60,7 @@ class CodeReview(BaseGraph):
             ).json()
             code_diffs = []
             for i in diff['files']:
-                code_diff = parse_diff(i['patch'], i['filename'])
+                code_diff = parse_diff(i['patch'], commit['sha'], i['filename'])
                 code_diffs.extend(code_diff)
             diffs.append({'commit': commit, 'diffs': code_diffs})
 
@@ -81,31 +81,25 @@ class CodeReview(BaseGraph):
         return {'messages': [response.text]}
 
     def _create_review(self, state: CodeReviewState) -> dict:
-        resp = httpx.get(
-            f"{state['pr_url']}/reviews",
-            headers={
-                'Accept': 'application/vnd.github+json',
-                'Authorization': f'Bearer {self.access_token}',
-            },
-        )
-        for item in resp.json():
-            resp = httpx.delete(
-                f"{state['pr_url']}/reviews/{item['id']}",
-                headers={
-                    'Accept': 'application/vnd.github+json',
-                    'Authorization': f'Bearer {self.access_token}',
-                },
-            )
+        # Group results with commit_id
+        merged_results = {}
+        for item in state['review_results']:
+            commit_id = item['meta_data']['commit_id']
+            merged_results.get(commit_id)
+            if merged_results.get(commit_id):
+                merged_results[commit_id].append(item)
+            else:
+                merged_results[commit_id] = [item]
 
-        for commit in state['diffs']:
+        for commit_id, results in merged_results.items():
             comments = []
-            for diff in commit['diffs']:
+            for result in results:
                 comments.append(
                     {
-                        'body': 'Hello I am Brachio ~~',
-                        'path': diff['file'],
-                        'start_line': diff['start_line'],
-                        'line': diff['end_line'],
+                        'body': result['results'],
+                        'path': result['meta_data']['file'],
+                        'start_line': result['meta_data']['start_line'],
+                        'line': result['meta_data']['end_line'],
                         'start_side': 'RIGHT',
                         'side': 'RIGHT',
                     },
@@ -118,7 +112,7 @@ class CodeReview(BaseGraph):
                 },
                 json={
                     'body': "Hello I'm Brachio",
-                    'commit_id': commit['commit']['sha'],
+                    'commit_id': commit_id,
                     'comments': comments,
                 },
             )
@@ -150,9 +144,13 @@ class CodeReview(BaseGraph):
         provider = state.get('llm_provider', None)
         system_message = SystemMessage(GITHUB_CODE_REVIEW_PROMPT)
         llm_model = self._get_llm_model(model_provider=provider, model=model_name, **kwargs)
-        message = f"{state['diffs']['code_snippet']}\n{state['messages']}"
-        resp = llm_model.invoke([system_message, message])
-        return {'messages': [resp]}
+        message = f"{state['diffs']['code_snippet']}\nReview the code   "
+        try:
+            resp = llm_model.invoke([system_message, message]).content
+        except Exception:
+            resp = 'Error'
+
+        return {'review_results': [{'meta_data': state['diffs'], 'results': resp}]}
 
     def _create_graph(self) -> CompiledStateGraph:
         graph = StateGraph(CodeReviewState)
