@@ -1,3 +1,4 @@
+from operator import add
 from typing import Annotated, Any
 
 from langgraph.graph.message import add_messages
@@ -17,3 +18,6 @@ class CodeReviewState(TypedDict):
     llm_provider: str
     llm_model: str
     kwargs: dict[str, Any]
+
+    # Results
+    review_results: Annotated[list, add]

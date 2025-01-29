@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 
-def parse_diff(diff_text: str, file_name: str) -> list[dict[str, str | int]]:
+def parse_diff(diff_text: str, commit_id: str, file_name: str) -> list[dict[str, str | int]]:
     result = []
     lines = diff_text.splitlines()
     for i, line in enumerate(lines):
@@ -29,6 +29,7 @@ def parse_diff(diff_text: str, file_name: str) -> list[dict[str, str | int]]:
                     'file': file_name,
                     'start_line': start_line,
                     'end_line': end_line,
+                    'commit_id': commit_id,
                     'code_snippet': code_snippet,
                 }
             )
