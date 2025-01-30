@@ -40,10 +40,7 @@ class CodeReview(BaseGraph):
         commits_url = f'{pull_request_url}/commits'
         commits = httpx.get(
             commits_url,
-            headers={
-                'Accept': 'application/vnd.github+json',
-                'Authorization': f'Bearer {self.access_token}',
-            },
+            headers=self.headers,
         ).json()
 
         commits = sorted(commits, key=lambda x: x['commit']['author']['date'], reverse=True)
@@ -53,10 +50,7 @@ class CodeReview(BaseGraph):
         for commit in commits:
             diff = httpx.get(
                 f"https://api.github.com/repos/Zncl2222/c_array_tools/commits/{commit['sha']}",
-                headers={
-                    'Accept': 'application/vnd.github+json',
-                    'Authorization': f'Bearer {self.access_token}',
-                },
+                headers=self.headers,
             ).json()
             code_diffs = []
             for i in diff['files']:
@@ -106,10 +100,7 @@ class CodeReview(BaseGraph):
                 )
             resp = httpx.post(
                 f"{state['pr_url']}/reviews",
-                headers={
-                    'Accept': 'application/vnd.github+json',
-                    'Authorization': f'Bearer {self.access_token}',
-                },
+                headers=self.headers,
                 json={
                     'body': "Hello I'm Brachio",
                     'commit_id': commit_id,
@@ -118,10 +109,7 @@ class CodeReview(BaseGraph):
             )
             resp = httpx.post(
                 f"{state['pr_url']}/reviews/{resp.json()['id']}/events",
-                headers={
-                    'Accept': 'application/vnd.github+json',
-                    'Authorization': f'Bearer {self.access_token}',
-                },
+                headers=self.headers,
                 json={
                     'body': 'CodeBrachioTest',
                     'event': 'COMMENT',
@@ -180,6 +168,10 @@ class CodeReview(BaseGraph):
     def run(self, access_token: str, json_payload: dict) -> str:
         graph = self._create_graph()
         self.access_token = access_token
+        self.headers = {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': f'Bearer {self.access_token}',
+        }
 
         langfuse_handler = CallbackHandler(
             secret_key=LANGFUSE_SECRET_KEY,
