@@ -14,7 +14,6 @@ class CodeReviewState(TypedDict):
     pr_url: str
 
     diffs: list[dict[str, str]]
-    commits: list[str]
     llm_provider: str
     llm_model: str
     kwargs: dict[str, Any]

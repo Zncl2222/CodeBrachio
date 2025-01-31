@@ -58,8 +58,7 @@ class CodeReview(BaseGraph):
                 code_diffs.extend(code_diff)
             diffs.append({'commit': commit, 'diffs': code_diffs})
 
-        commits = [x['sha'] for x in commits]
-        return {'commits': commits, 'diffs': diffs}
+        return {'diffs': diffs}
 
     def _create_comment(self, state: CodeReviewState) -> dict:
         response = httpx.post(
@@ -122,7 +121,7 @@ class CodeReview(BaseGraph):
         map_params = []
         for diff in state['diffs']:
             for d in diff['diffs']:
-                map_params.append(Send('code_review', {'diffs': d}))
+                map_params.append(Send('code_review', {'diffs': d, 'messages': state['messages']}))
         return map_params
 
     def _code_review(self, state: CodeReviewState) -> dict:
@@ -132,7 +131,7 @@ class CodeReview(BaseGraph):
         provider = state.get('llm_provider', None)
         system_message = SystemMessage(GITHUB_CODE_REVIEW_PROMPT)
         llm_model = self._get_llm_model(model_provider=provider, model=model_name, **kwargs)
-        message = f"{state['diffs']['code_snippet']}\nReview the code   "
+        message = f"{state['diffs']['code_snippet']}\n User Question: {state['messages']}"
         try:
             resp = llm_model.invoke([system_message, message]).content
         except Exception:
@@ -153,14 +152,12 @@ class CodeReview(BaseGraph):
         graph.add_edge('create_comment', 'create_review')
         graph.add_edge('create_review', END)
 
-        (
-            graph.add_conditional_edges(
-                'get_commits',
-                self._map_review,
-                {
-                    'continue': 'code_review',
-                },
-            ),
+        graph.add_conditional_edges(
+            'get_commits',
+            self._map_review,
+            {
+                'continue': 'code_review',
+            },
         )
 
         return graph.compile()
