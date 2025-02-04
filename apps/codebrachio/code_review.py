@@ -70,6 +70,7 @@ class CodeReview(BaseGraph):
             json={
                 'body': state['messages'][-1].content,
             },
+            timeout=180,
         )
         return {'messages': [response.text]}
 
@@ -119,9 +120,15 @@ class CodeReview(BaseGraph):
 
     def _map_review(self, state: CodeReviewState):
         map_params = []
+        props = {k: v for k, v in state.items() if k != 'diffs'}
         for diff in state['diffs']:
             for d in diff['diffs']:
-                map_params.append(Send('code_review', {'diffs': d, 'messages': state['messages']}))
+                map_params.append(
+                    Send(
+                        'code_review',
+                        {'diffs': d, **props},
+                    )
+                )
         return map_params
 
     def _code_review(self, state: CodeReviewState) -> dict:
