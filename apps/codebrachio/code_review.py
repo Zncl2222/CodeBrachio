@@ -4,12 +4,13 @@ import httpx
 from langchain_core.messages import SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
+from langchain_xai import ChatXAI
 from langfuse.callback import CallbackHandler
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Send
 
-from configs import LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
+from configs import LANGFUSE_HOST, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, XAI_API_KEY
 
 from .prompts import GITHUB_CODE_REVIEW_PROMPT
 from .states import CodeReviewState
@@ -30,6 +31,9 @@ class BaseGraph:
         if model_provider == 'groq':
             model = 'llama-3.3-70b-versatile' if not model else model
             return ChatGroq(model=model, **kwargs)
+
+        if model_provider == 'xai':
+            return ChatXAI(model='grok-2-latest', api_key=XAI_API_KEY, **kwargs)
 
         return ChatGoogleGenerativeAI(model='gemini-1.5-pro', **kwargs)
 
@@ -185,7 +189,7 @@ class CodeReview(BaseGraph):
 
         data = {
             'llm_model': None,
-            'llm_provider': 'groq',
+            'llm_provider': 'xai',
             'messages': json_payload['comment']['body'],
             'diffs_url': json_payload['issue']['pull_request']['url'],
             'comment_url': json_payload['issue']['comments_url'],
