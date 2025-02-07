@@ -12,6 +12,7 @@ class CodeReviewState(TypedDict):
     comment_url: str
     diffs_url: str
     pr_url: str
+    commits_url: str
 
     diffs: list[dict[str, str]]
     llm_provider: str

@@ -63,10 +63,8 @@ class CodeReview(BaseGraph):
                 diffs = []
                 for commit in commits:
                     commit_sha = commit['sha']
-                    diff_url = (
-                        f'https://api.github.com/repos/Zncl2222/c_array_tools/commits/{commit_sha}'
-                    )
-                    diff_resp = client.get(diff_url, headers=self.headers)
+                    diffs_url = state['commits_url'].replace('{/sha}', f'/{commit_sha}')
+                    diff_resp = client.get(diffs_url, headers=self.headers)
                     diff_resp.raise_for_status()
                     diff_data = diff_resp.json()
                     code_diffs: List[Any] = []
@@ -243,6 +241,7 @@ class CodeReview(BaseGraph):
             'diffs_url': json_payload['issue']['pull_request']['url'],
             'comment_url': json_payload['issue']['comments_url'],
             'pr_url': json_payload['issue']['pull_request']['url'],
+            'commits_url': json_payload['repository']['commits_url'],
         }
 
         graph = self._create_graph()
