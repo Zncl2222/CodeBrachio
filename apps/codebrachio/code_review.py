@@ -236,7 +236,7 @@ class CodeReview(BaseGraph):
 
         data = {
             'llm_model': None,
-            'llm_provider': 'xai',
+            'llm_provider': json_payload['llm_provider'],
             'messages': json_payload['comment']['body'],
             'diffs_url': json_payload['issue']['pull_request']['url'],
             'comment_url': json_payload['issue']['comments_url'],

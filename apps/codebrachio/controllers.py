@@ -1,3 +1,5 @@
+import re
+
 import httpx
 from litestar import Controller, Request, Response
 from litestar.exceptions import HTTPException
@@ -11,6 +13,17 @@ from .code_review import CodeReview
 
 class GitHubController(Controller):
     path = '/github'
+
+    MODEL_CHOICES = ['google', 'groq', 'xai']
+    DEFAULT_MODEL = 'xai'
+    MODEL_REGEX = re.compile(r'@CodeBrachio\s*\[(google|groq|xai)\]', re.IGNORECASE)
+
+    def _extract_model_provider(self, body: str) -> str:
+        """Extract LLM provider from comment body, fallback to default."""
+        match = self.MODEL_REGEX.search(body)
+        if match:
+            return match.group(1).lower()
+        return self.DEFAULT_MODEL
 
     @post('/code_review')
     async def code_review(self, request: Request) -> Response:
@@ -43,7 +56,10 @@ class GitHubController(Controller):
 
         user = json_payload['comment']['user']['login']
         body = json_payload['comment']['body']
+
         if user != 'codebrachio[bot]' and '@CodeBrachio' in body:
+            model_provider = self._extract_model_provider(body)
+            json_payload['llm_provider'] = model_provider
             CodeReview().run(access_token, json_payload)
 
         return Response({'status': 'ok'}, status_code=200)
