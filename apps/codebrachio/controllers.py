@@ -1,13 +1,17 @@
 import re
 
-import httpx
 from litestar import Controller, Request, Response
 from litestar.exceptions import HTTPException
 from litestar.handlers import post
 
 from configs import GITHUB_CLIENT_ID
 
-from .auth import generate_jwt, get_installation_access_token, verify_webhook_signature
+from .auth import (
+    generate_jwt,
+    get_github_app_installations,
+    get_installation_access_token,
+    verify_webhook_signature,
+)
 from .code_review import CodeReview
 
 
@@ -29,17 +33,7 @@ class GitHubController(Controller):
     async def code_review(self, request: Request) -> Response:
         jwt_token = generate_jwt(GITHUB_CLIENT_ID)
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                'https://api.github.com/app/installations',
-                headers={
-                    'Authorization': f'Bearer {jwt_token}',
-                    'Accept': 'application/vnd.github+json',
-                },
-            )
-
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail=response.text)
+        response = await get_github_app_installations(jwt_token)
 
         installations = response.json()
         installations_id = installations[0]['id']
