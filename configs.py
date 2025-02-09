@@ -17,9 +17,10 @@ GITHUB_APP_ID = os.getenv('GITHUB_APP_ID', default='')
 GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', default='')
 GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', default='')
 GITHUB_WEBHOOK_SECRET = os.getenv('GITHUB_WEBHOOK_SECRET', default='')
+GITHUB_PEM_FILE_NAME = os.getenv('GITHUB_PEM_FILE_NAME', default='')
 GITHUB_JWT_SIGNING_KEY: str = ''
 
-with open('codebrachio.2025-01-04.private-key.pem', 'rb') as pem_file:
+with open(GITHUB_PEM_FILE_NAME, 'rb') as pem_file:
     GITHUB_JWT_SIGNING_KEY = pem_file.read()
 
 # Langfuse
