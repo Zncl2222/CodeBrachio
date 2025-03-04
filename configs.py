@@ -26,3 +26,5 @@ with open('codebrachio.2025-01-04.private-key.pem', 'rb') as pem_file:
 LANGFUSE_SECRET_KEY = os.getenv('LANGFUSE_SECRET_KEY', default='')
 LANGFUSE_PUBLIC_KEY = os.getenv('LANGFUSE_PUBLIC_KEY', default='')
 LANGFUSE_HOST = os.getenv('LANGFUSE_HOST', default='')
+
+XAI_API_KEY = os.getenv('XAI_API_KEY')

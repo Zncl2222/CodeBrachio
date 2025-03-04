@@ -4,8 +4,24 @@ from hashlib import sha256
 
 import httpx
 import jwt
+from litestar.exceptions import HTTPException
 
 from configs import GITHUB_JWT_SIGNING_KEY, GITHUB_WEBHOOK_SECRET
+
+
+async def get_github_app_installations(jwt_token: str) -> httpx.Response:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            'https://api.github.com/app/installations',
+            headers={
+                'Authorization': f'Bearer {jwt_token}',
+                'Accept': 'application/vnd.github+json',
+            },
+        )
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    return response
 
 
 def generate_jwt(app_id: str) -> str:
